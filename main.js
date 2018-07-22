@@ -159,9 +159,11 @@ class Game {
     this.frameId = null;
 
     var socket = io('http://localhost:3000');
-
+    this.playerId = null;
     socket.on('connect', () => {
-      socket.emit('join', {room: 123});
+      socket.emit('join', {room: 123}, (id) => {
+        this.playerId = id
+      });
     });
     socket.on('disconnect', function(){});
   }

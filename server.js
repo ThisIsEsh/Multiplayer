@@ -82,12 +82,55 @@ class Bike extends GameObject {
 
   }
 }
+class Controls {
+  constructor(){
+    this.direction = 'bottom'
+  }
+}
+class Game {
+  constructor(socket, room) {
+    this.objectList = [];
+    this.frameId = null;
+    this.socket = socket
+    this.room   = room
+  }
 
+  syncClient() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const state = []
+    for (var i in this.objectList) {
+
+    }
+    this.socket.to(this.room).emit('update')
+  }
+
+  runPhysics() {
+    for (let i in this.objectList) {
+      const object = this.objectList[i]
+      object.sync();
+    }
+  }
+
+  start() {
+    const Bike1 = new Bike(10, 10, 'red', new Controls());
+    const Bike2 = new Bike(canvas.width - 20, 10, 'blue', new Controls())
+    this.objectList.push(Bike1);
+    this.objectList.push(Bike2);
+    for (let i in this.objectList) {
+      this.objectList[i].draw();
+    }
+    setInterval(this.runPhysics.bind(this), 15);
+    setInterval(this.syncClient.bind(this), 65);
+  }
+}
 io.on('connection', function(socket){
-  socket.on('join', (data) => {
+  socket.on('join', (data, fn) => {
     socket.join(data.room)
+    fn(socket.id)
     var clients = io.sockets.adapter.rooms[data.room].sockets;
     if (Object.keys(clients).length === 2) {
+      const game = new Game(socket, data.room);
+      game.start();
       io.to(data.room).emit('start')
     }
   })
