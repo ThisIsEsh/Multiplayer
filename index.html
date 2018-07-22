@@ -1,0 +1,41 @@
+<html>
+<head>
+    <style>
+        canvas {
+            border:solid 2px #000;
+            position: absolute;
+            top:0;
+            right:0;
+            left:0;
+            bottom:0;
+        }
+        div {
+            width: 500px;
+            font-size: 20px;
+            font-weight:bold
+        }
+        #title {
+            text-align: center;
+        }
+        .canvasContainer {
+            position: relative;
+            width: 1200px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+<div class="canvasContainer">
+    <canvas id="main" height="600" width="1200"></canvas>
+    <canvas id="static" height="600" width="1200"></canvas>
+</div>
+
+<div id="title">Press "SPACE" to start!</div>
+<div>
+    <span id="leftCounter" style="float:left">0</span>
+    <span id="rightCounter" style="float:right">0</span>
+</div>
+<script src="node_modules/socket.io-client/dist/socket.io.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
