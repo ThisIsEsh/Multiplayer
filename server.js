@@ -1,4 +1,8 @@
 var io = require('socket.io')();
+const canvas = {
+  height: 600,
+  width: 1200
+}
 class GameObject {
   draw() {
 
@@ -52,6 +56,7 @@ class Bike extends GameObject {
     this.width  = 10;
     this.speed = 100;
     this.color = color;
+    this.playerId = null;
   }
 
 
@@ -81,27 +86,40 @@ class Bike extends GameObject {
   draw() {
 
   }
+  getControls() {
+    return this.controls
+  }
 }
 class Controls {
   constructor(){
     this.direction = 'bottom'
   }
+  setDirection(direction) {
+    this.direction = direction
+  }
 }
 class Game {
-  constructor(socket, room) {
-    this.objectList = [];
+  constructor(io, room) {
+    this.objectList = {};
     this.frameId = null;
-    this.socket = socket
+    this.io = io
     this.room   = room
   }
 
   syncClient() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const state = []
-    for (var i in this.objectList) {
+    //ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    this.io.in(this.room).emit('update', this.getState())
+  }
+  getState() {
+    const state = {}
+    for (var i in this.objectList) {
+      state[i] = {
+        x: this.objectList[i].x,
+        y: this.objectList[i].y
+      }
     }
-    this.socket.to(this.room).emit('update')
+    return state
   }
 
   runPhysics() {
@@ -111,29 +129,54 @@ class Game {
     }
   }
 
-  start() {
+  start(clients) {
     const Bike1 = new Bike(10, 10, 'red', new Controls());
     const Bike2 = new Bike(canvas.width - 20, 10, 'blue', new Controls())
-    this.objectList.push(Bike1);
-    this.objectList.push(Bike2);
-    for (let i in this.objectList) {
-      this.objectList[i].draw();
+    this.objectList[clients[0]] = Bike1;
+    this.objectList[clients[1]] = Bike2;
+
+    console.log('game started with params', this.getState())
+    this.io.in(this.room).emit('start', this.getState())
+
+    setTimeout(() => {
+      this.physicsInterval = setInterval(this.runPhysics.bind(this), 15)
+      this.syncInteval = setInterval(this.syncClient.bind(this), 65)
+    }, 500);
+  }
+  stop() {
+    if (this.physicsInterval) {
+      clearInterval(this.physicsInterval)
+      clearInterval(this.syncInteval)
     }
-    setInterval(this.runPhysics.bind(this), 15);
-    setInterval(this.syncClient.bind(this), 65);
+  }
+  changeDirection(clientId, direction) {
+    this.objectList[clientId].getControls().setDirection(direction)
   }
 }
+const games = {}
 io.on('connection', function(socket){
   socket.on('join', (data, fn) => {
     socket.join(data.room)
     fn(socket.id)
-    var clients = io.sockets.adapter.rooms[data.room].sockets;
-    if (Object.keys(clients).length === 2) {
-      const game = new Game(socket, data.room);
-      game.start();
-      io.to(data.room).emit('start')
+    var clients = Object.keys(io.sockets.adapter.rooms[data.room].sockets);
+    if (clients.length === 2) {
+      const game = new Game(io, data.room);
+      game.start(clients);
+      games[data.room] = game
+    }
+  })
+  socket.on('disconnect', function () {
+    if (games['123']) {
+      games['123'].stop()
+      console.log('game stoped')
+      delete games['123']
+    }
+  });
+  socket.on('direction', (direction) => {
+    if (games['123']) {
+      games['123'].changeDirection(socket.id, direction)
     }
   })
 });
-io.listen(3000);
+io.listen(3001);
 console.log('ready');

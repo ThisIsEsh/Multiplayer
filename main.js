@@ -108,6 +108,11 @@ class Bike extends GameObject {
   }
 
   sync() {
+    if (!this.controls) {
+      return;
+    } else {
+      return this.controls.direction
+    }
     const currentTime = new Date().getTime()
     if (this.lastSyncTime) {
       //Дистанцию которую прошел байк с момента прошлой синхронизации
@@ -155,17 +160,25 @@ class Bike extends GameObject {
 
 class Game {
   constructor() {
-    this.objectList = [];
+    this.objectList = {};
     this.frameId = null;
 
-    var socket = io('http://localhost:3000');
+    var socket = io('http://localhost:3001');
     this.playerId = null;
     socket.on('connect', () => {
-      socket.emit('join', {room: 123}, (id) => {
-        this.playerId = id
+      socket.emit('join', {room: 123}, (playerId) => {
+        this.playerId = playerId
       });
     });
+
     socket.on('disconnect', function(){});
+    socket.on('start', (state) => {
+      this.start(state)
+      });
+      socket.on('update', (state) => {
+        this.update(state)
+      });
+    this.socket = socket;
   }
 
   render() {
@@ -177,23 +190,33 @@ class Game {
   }
 
   runPhysics() {
-    for (let i in this.objectList) {
-      const object = this.objectList[i]
-      object.sync();
-
-    }
+    const direction = this.objectList[this.playerId].sync();
+    this.socket.emit('direction', direction)
+    // for (let i in this.objectList) {
+    //   const object = this.objectList[i]
+    //   object.sync();
+    //
+    // }
   }
 
-  start() {
-    const Bike1 = new Bike(10, 10, 'red', new Controls(87, 83, 65, 68));
-    const Bike2 = new Bike(canvas.width - 20, 10, 'blue', new Controls(38, 40, 37, 39))
-    this.objectList.push(Bike1);
-    this.objectList.push(Bike2);
-    for (let i in this.objectList) {
-      this.objectList[i].draw();
+  start(state) {
+    staticCtx.clearRect(0, 0, canvas.width, canvas.height);
+    this.objectList = {}
+    for (let playerId in state) {
+      const color = playerId === this.playerId ? 'blue' : 'red'
+      const controls = playerId === this.playerId ? new Controls(38, 40, 37, 39) : undefined
+      const BikeInstance = new Bike(state[playerId].x, state[playerId].y, color, controls);
+      this.objectList[playerId] = BikeInstance
+      BikeInstance.draw()
     }
     setInterval(this.runPhysics.bind(this), 15);
     this.render()
+  }
+  update(state) {
+    for (let playerId in state) {
+      this.objectList[playerId].x = state[playerId].x
+      this.objectList[playerId].y = state[playerId].y
+    }
   }
 }
 // let paused = true;
